@@ -6,11 +6,12 @@ import { DbClient } from './app.dbclient';
 export class AppController {
   constructor(private readonly dbClient: DbClient) {}
 
-  @Get("/test")
-  getHello() {
-    return this.dbClient.connect();
+  @Get("/queryFake")
+  getQueryFake() {
+    return this.dbClient.queryFake();
   }
 
+  //Same but with real database
   @Get("/query")
   getQuery() {
     return this.dbClient.query();
