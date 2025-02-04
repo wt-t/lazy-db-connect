@@ -1,12 +1,18 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { DbClient } from './app.dbclient';
+
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly dbClient: DbClient) {}
 
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  @Get("/test")
+  getHello() {
+    return this.dbClient.connect();
+  }
+
+  @Get("/query")
+  getQuery() {
+    return this.dbClient.query();
   }
 }
