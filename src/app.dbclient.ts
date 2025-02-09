@@ -1,36 +1,50 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { query } from 'express';
+import { connect } from 'http2';
+import { async } from 'rxjs';
 import { DataSource } from 'typeorm';
 
 
 const delay = new Promise(resolve => setTimeout(resolve, 10_000));
+const debounce = function(func, wait) {
+    let timeoutId = null;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            func.apply(this, args);
+        }, wait);
+    }
+}
+
 @Injectable()
 export class DbClient {
     private readonly logger = new Logger(DbClient.name, { timestamp: true });
-    private connected: Boolean;
     private AppDataSource: DataSource;
+    private initializing: Promise<DataSource>;
 
     async connectFake() {
-        if (this.connected) return;
-        try {
-            this.connected = true;
-            await delay;
-            this.logger.log("connected successfully");
-        } catch (e) {
-            this.connected = false;
-            this.logger.error("connection failed: " + e);
+        if (this.AppDataSource) {
+            return this.AppDataSource;
         }
+        if (!this.initializing) {
+        // we connect to a database here;
+        await delay;
+        }
+        return this.initializing;
     }
 
+
     async queryFake() {
-        if (!this.connected) await this.connectFake();
+        const database = await this.connectFake();
         return [];
     }
 
     //Same but with real database
     async connect() {
-        if (this.connected) return;
+        if (this.AppDataSource) {
+            return this.AppDataSource;
+        }
         try {
-            this.connected = true;
             const dataSource = new DataSource({
                 type: "postgres",
                 host: "localhost",
@@ -44,16 +58,18 @@ export class DbClient {
                 subscribers: [],
                 migrations: [],
             });
-            this.AppDataSource = await dataSource.initialize();
+            await dataSource.initialize();
+            this.AppDataSource = dataSource;
             this.logger.log("connected successfully");
+            return dataSource;
         } catch (e) {
-            this.connected = false;
+            this.initializing = null;
             this.logger.error("connection failed: " + e);
         }
     }
 
     async query() {
-        if (!this.connected) await this.connect();
-        return this.AppDataSource.query("SELECT * FROM current_schema()");
+        const database = await this.connect();
+        return database.query("SELECT * FROM current_schema()");
     }
 }
